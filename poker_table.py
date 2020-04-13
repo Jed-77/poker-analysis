@@ -27,7 +27,7 @@ class CardDeck:
 class PokerPlayer:
     def __init__(self, name):
         self.name = name
-        self.balance = ps.startingChipCount
+        #self.balance = ps.startingChipCount
         self.active = True
         self.card1 = None
         self.card2 = None
@@ -45,39 +45,12 @@ class PokerPlayer:
         self.card1 = card1
         self.card2 = card2
 
-    def update_balance(self, amount):
-        self.balance += amount
+    #def update_balance(self, amount):
+    #    self.balance += amount
 
     #def hand_evaluation(self, table_cards=None):
         # f(card1, card2, other group (which is flop, turn or river as we evaluate on each)
     #    print('{} is evaluating...'.format(self.name))
-
-    def player_action(self, action_type, min_amount=0, amount=0):
-        if action_type == 'Fold':
-            print('{} folds.'.format(self.name))
-            self.active = False
-            return 0
-        elif action_type == 'Check':
-            if min_amount > 0:
-                print('You cannot check as minimum bet is {}'.format(min_amount))
-                return self.player_action('Call', min_amount=min_amount)
-            print('{} checks.'.format(self.name))
-            return 0
-        elif action_type == 'Call':
-            self.balance -= min_amount
-            print('{} calls {}.'.format(self.name, min_amount))
-            return min_amount
-        elif action_type == 'Raise':
-            if amount < min_amount:
-                print('You cannot bet less than minimum bet of {}'.format(min_amount))
-                self.player_action('Call', min_amount=min_amount)
-                return min_amount
-            else:
-                print('{} raises to {}.'.format(self.name, amount))
-                self.balance -= amount
-                return amount
-        else:
-            sys.exit("Not Valid Action")
 
 
 class PokerTable:
@@ -115,6 +88,7 @@ class PokerTable:
         return 0
 
     def run_pre_flop(self):
+        # Allocate the Cards
         deck = CardDeck()
         deck.shuffle()
         player_cards, table_cards = self.card_allocation(deck.cards)
@@ -128,100 +102,88 @@ class PokerTable:
         for position, player in self.get_table_position().items():
             active_table[player] = True
 
+        # Pot Amount
+        pot_amount = 0
+
         # Loop through Betting
         position_counter = 0
         table_position = list(self.get_table_position().items())
         print(table_position)
 
         # WORKING GOOD - NEED TO UPDATE THE F FUNCTIONALITY (ACTIVE = FALSE)
-        while position_counter < 10:
+        while True:
+            print(position_counter)
+            print("Pot Amount")
             position, player = table_position[position_counter % self.num_players]
+            if not active_table[player]:
+                position_counter += 1
+                continue
             if position_counter == 0:
                 print("{} is on Small Blind of {}".format(player.name, ps.smallBlind))
                 betting_table[player] = ps.smallBlind
-                player.update_balance(-ps.smallBlind)
+                #player.update_balance(-ps.smallBlind)
             elif position_counter == 1:
                 print("{} is on Big Blind of {}".format(player.name, ps.bigBlind))
                 betting_table[player] = ps.bigBlind
-                player.update_balance(-ps.bigBlind)
+                #player.update_balance(-ps.bigBlind)
             else:
                 min_amount = max(betting_table.values())-betting_table[player]
                 action = input("{}, would you like to Fold (F), Check (Ch), Call (Cl) or Raise (R)?".format(player.name))
                 if action == 'F':
                     print("{} has folded".format(player.name))
+                    pot_amount += betting_table[player]
+                    betting_table[player] = 0
                     active_table[player] = False
                 elif action == 'Ch':
                     if betting_table[player] < min_amount:
                         print("Cannot check! You are calling instead")
                         print("{} is calling {}".format(player.name, min_amount))
                         betting_table[player] += int(min_amount)
-                        player.update_balance(-int(min_amount))
+                        #player.update_balance(-int(min_amount))
                     else:
                         print("{} is checking".format(player.name))
                 elif action == 'Cl':
                     print("{} is calling {}".format(player.name, min_amount))
                     betting_table[player] += int(min_amount)
-                    player.update_balance(-int(min_amount))
+                    #player.update_balance(-int(min_amount))
                 elif action == 'R':
                     amount = input("How much would you like to Raise it by:")
                     if int(amount) < min_amount:
                         print("Must raise to at least the call amount. Calling Instead")
                         betting_table[player] += int(min_amount)
-                        player.update_balance(-int(min_amount))
+                        #player.update_balance(-int(min_amount))
                     else:
                         print("{} is raising to {}".format(player.name, amount))
                         betting_table[player] += int(amount)
-                        player.update_balance(-int(amount))
+                        #player.update_balance(-int(amount))
             print(betting_table)
-            print("{} has {} left".format(player.name, player.balance))
-            if (position_counter % self.num_players == 1) & (len(set(betting_table.values())) == 1):
+            #print("{} has {} left".format(player.name, player.balance))
+            print(set(betting_table.values()))
+
+            print("Conditional1")
+            # important one - if all the non zero bets (so folds) are the same then we can move on
+            cond1 = (len(set({bet for player, bet in betting_table.items() if bet != 0})) == 1)
+            print("Conditional2")
+            # it must go past the number of players (this needs to be scaled as people fold)
+            cond2 = (position_counter > self.num_players)
+
+            if cond1 & cond2:
                 # if on big blind and everyone has bet the same, we are done
                 break
             position_counter += 1
+
+        # Update pot amount with all non-folded bets
+        for player, bet in betting_table.items():
+            pot_amount += bet
+        print(pot_amount)
 
         print(betting_table)
         print(active_table)
 
 
 
-    #def run_hand(self):
-    #    pot_amount = 0
-    #    # Reset each player (so they have no cards and are active in the round)
-    #    [player.reset_player() for player in self.table_players]
-    #    # Deal the cards and initialise the card allocation
-    #    deck = CardDeck()
-    #    deck.shuffle()
-    #    player_hands, table_hands = self.deck_classifier(deck.cards)
-    #
-    #    # Pre Flop
-    #    print("\n Each player was dealt...")
-    #    print(player_hands)
-    #    # Each player will evaluate their hand pre flop (so no parameter)
-    #    #[player.hand_evaluation() for player in player_list]
-    #    # Each player bets
-    #    for player in self.table_players:
-    #        action = input("What should {} do?".format(player))
-    #        amount = input("How much?")
-    #        player.player_action(action, max(self.bet_history), int(amount))#
-    #
-    #    print("\nPre Flop Pot Amount is: {}".format(pot_amount))
 
-        # Flop
-     #   print("Flop: {}".format(table_hands['Flop']))
-        #[player.hand_evaluation(FLOP) for player in player_list]
-
-        # Turn
-    #    print("Turn: {}{}".format(table_hands['Flop'], [table_hands['Turn']]))
-        # [player.hand_evaluation(FLOP) for player in player_list]
-
-        # River
-    #    print("River: {}{}{}".format(table_hands['Flop'], [table_hands['Turn']], [table_hands['River']]))
-        # [player.hand_evaluation(FLOP) for player in player_list]
-        # make sure to increment num_hands_played
-
-
-
-
+# Main
 player_list = [PokerPlayer("Jed"), PokerPlayer("Tom"), PokerPlayer("Josh"), PokerPlayer("Will")]
 table = PokerTable(player_list)
 print(table.get_table_position())
